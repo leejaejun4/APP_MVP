@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../firebase";
-import Toast from "react-native-toast-message"; // ✅ 추가
+import Toast from "react-native-toast-message";
+import { View, ActivityIndicator, StyleSheet, Image } from "react-native";
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
@@ -17,7 +18,16 @@ export default function RootLayout() {
   }, []);
 
   if (loading) {
-    return null; // 로딩 화면 대신 Splash 넣어도 됨
+    return (
+      <View style={styles.splash}>
+        {/* 로고 + 로딩 인디케이터 */}
+        <Image
+          source={require("../assets/images/react-logo.png")}
+          style={{ width: 80, height: 80, marginBottom: 20 }}
+        />
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
   }
 
   return (
@@ -27,14 +37,37 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
         ) : (
           <>
-            <Stack.Screen name="login" />
-            <Stack.Screen name="register" />
+            <Stack.Screen
+              name="login"
+              options={{
+                presentation: "modal", // iOS 모달 스타일
+              }}
+            />
+            <Stack.Screen
+              name="register"
+              options={{
+                presentation: "modal",
+              }}
+            />
           </>
         )}
       </Stack>
 
-      {/* ✅ Toast Provider (전역에서 토스트 가능) */}
-      <Toast />
+      {/* ✅ Toast Provider */}
+      <Toast
+        position="top"
+        topOffset={60} // iOS 노치 밑으로
+        visibilityTime={2000}
+      />
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f7", // iOS 톤 배경
+  },
+});
