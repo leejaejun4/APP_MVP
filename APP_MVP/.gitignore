@@ -1,5 +1,11 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
+# local env files
+.env*.local
+
+# 내 환경 변수 파일 (Firebase 키 등)
+.env
+
 # dependencies
 node_modules/
 
