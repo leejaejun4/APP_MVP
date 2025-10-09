@@ -9,9 +9,17 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth, db } from "../../firebase";
+import { Swipeable } from "react-native-gesture-handler"; // ← 스와이프 기능 추가
 
 // Firestore 게시글 타입 정의
 interface Post {
@@ -38,7 +46,10 @@ export default function PostListScreen() {
     try {
       const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Post[];
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Post[];
       setPosts(data);
     } catch (error) {
       console.error("게시글 불러오기 실패:", error);
@@ -61,35 +72,100 @@ export default function PostListScreen() {
     }
   };
 
-  // 로그인 화면 이동
-  const handleLogin = () => router.push("/login");
-
   // 게시글 상세 화면 이동
   const handlePostPress = (postId: string) => router.push(`/post/${postId}`);
 
   // 게시글 작성 화면 이동
   const handleCreatePost = () => router.push("/게시글");
 
+  // 게시글 삭제
+  const handleDelete = (postId: string) => {
+    Alert.alert("삭제 확인", "정말로 이 게시글을 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteDoc(doc(db, "posts", postId));
+            setPosts((prev) => prev.filter((p) => p.id !== postId)); // 즉시 UI 반영
+          } catch (error) {
+            console.error("삭제 오류:", error);
+            Alert.alert("오류", "게시글 삭제에 실패했습니다.");
+          }
+        },
+      },
+    ]);
+  };
+
+  // 스와이프 시 표시할 삭제 버튼 UI
+  const renderRightActions = (postId: string) => (
+    <TouchableOpacity
+      style={styles.deleteButton}
+      onPress={() => handleDelete(postId)}
+    >
+      <Text style={styles.deleteText}>삭제</Text>
+    </TouchableOpacity>
+  );
+
+  // 개별 게시글 렌더링
+  const renderItem = ({ item }: { item: Post }) => {
+    const isOwner = currentUser?.uid === item.userId;
+
+    const card = (
+      <TouchableOpacity
+        onPress={() => handlePostPress(item.id)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.postCard}>
+          <Text style={styles.postTitle}>{item.title}</Text>
+          <Text numberOfLines={2} style={styles.postContent}>
+            {item.content}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+
+    // 본인 글만 스와이프 가능하게 처리
+    return isOwner ? (
+      <Swipeable renderRightActions={() => renderRightActions(item.id)}>
+        {card}
+      </Swipeable>
+    ) : (
+      card
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        {/* 상단 버튼 영역 */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleCreatePost}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleCreatePost}
+          >
             <Text style={styles.primaryButtonText}>새 글 작성</Text>
           </TouchableOpacity>
 
           {currentUser ? (
-            <TouchableOpacity style={styles.dangerButton} onPress={handleLogout}>
+            <TouchableOpacity
+              style={styles.dangerButton}
+              onPress={handleLogout}
+            >
               <Text style={styles.dangerButtonText}>로그아웃</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => router.push("/login")}
+            >
               <Text style={styles.loginButtonText}>로그인</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* 게시글 목록 */}
+        {/* 게시글 리스트 */}
         {posts.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>아직 작성된 글이 없습니다</Text>
@@ -99,16 +175,7 @@ export default function PostListScreen() {
             data={posts}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingVertical: 12 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => handlePostPress(item.id)} activeOpacity={0.8}>
-                <View style={styles.postCard}>
-                  <Text style={styles.postTitle}>{item.title}</Text>
-                  <Text numberOfLines={2} style={styles.postContent}>
-                    {item.content}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            renderItem={renderItem}
           />
         )}
       </View>
@@ -116,10 +183,18 @@ export default function PostListScreen() {
   );
 }
 
+/**
+ * 스타일 정의
+ */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#f5f5f7" },
   container: { flex: 1, paddingHorizontal: 20 },
-  buttonRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, marginBottom: 16 },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+    marginBottom: 16,
+  },
   primaryButton: {
     flex: 1,
     backgroundColor: "#007AFF",
@@ -161,4 +236,17 @@ const styles = StyleSheet.create({
   },
   postTitle: { fontSize: 18, fontWeight: "600", marginBottom: 6, color: "#1c1c1e" },
   postContent: { fontSize: 14, color: "#555" },
+  deleteButton: {
+    backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    marginVertical: 6,
+    borderRadius: 10,
+  },
+  deleteText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
 });
