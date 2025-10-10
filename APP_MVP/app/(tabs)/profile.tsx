@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-    SafeAreaView,
     View,
     Text,
     TouchableOpacity,
@@ -9,6 +8,7 @@ import {
     ActivityIndicator,
     ScrollView,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebase";
 import {
     collection,
@@ -21,12 +21,9 @@ import {
 import { useRouter } from "expo-router";
 
 /**
- * ProfileScreen
- * 사용자 프로필 화면
- * Firestore에서 작성한 게시글 및 댓글 수 로드
- * 로그인하지 않은 경우 로그인 유도
- * 닉네임 관련 정보 제거
- * 이메일, 가입일, 마지막 로그인, 통계, 최근 게시글 표시
+ * ProfileScreen (iOS 스타일)
+ * - 로직 동일
+ * - 디자인만 Apple 스타일로 개선
  */
 export default function ProfileScreen() {
     const router = useRouter();
@@ -35,11 +32,8 @@ export default function ProfileScreen() {
     const [commentCount, setCommentCount] = useState<number | null>(null);
     const [recentPosts, setRecentPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const insets = useSafeAreaInsets();
 
-    /**
-     * 사용자 관련 데이터 로드
-     * 게시글 수, 댓글 수, 최근 작성 게시글
-     */
     const loadUserStats = async () => {
         if (!user) return;
         try {
@@ -87,10 +81,10 @@ export default function ProfileScreen() {
             <SafeAreaView style={styles.center}>
                 <Text style={styles.noticeText}>로그인 후 이용해주세요.</Text>
                 <TouchableOpacity
-                    style={styles.loginButton}
+                    style={styles.primaryButton}
                     onPress={() => router.replace("/login")}
                 >
-                    <Text style={styles.loginButtonText}>로그인 하러 가기</Text>
+                    <Text style={styles.primaryButtonText}>로그인 하러 가기</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         );
@@ -99,39 +93,48 @@ export default function ProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.center}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color="#007aff" />
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView
+            style={[
+                styles.safeArea,
+                { paddingTop: insets.top, paddingBottom: insets.bottom + 12 },
+            ]}
+        >
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.title}>내 프로필</Text>
 
-                <Text style={styles.label}>이메일</Text>
-                <Text style={styles.value}>{user.email}</Text>
+                {/* 사용자 정보 */}
+                <View style={styles.card}>
+                    <Text style={styles.label}>이메일</Text>
+                    <Text style={styles.value}>{user.email}</Text>
 
-                <Text style={styles.label}>가입일</Text>
-                <Text style={styles.value}>
-                    {new Date(user.metadata.creationTime || "").toLocaleString("ko-KR")}
-                </Text>
+                    <Text style={styles.label}>가입일</Text>
+                    <Text style={styles.value}>
+                        {new Date(user.metadata.creationTime || "").toLocaleString("ko-KR")}
+                    </Text>
 
-                <Text style={styles.label}>마지막 로그인</Text>
-                <Text style={styles.value}>
-                    {new Date(user.metadata.lastSignInTime || "").toLocaleString("ko-KR")}
-                </Text>
-
-                <View style={styles.statsBox}>
-                    <Text style={styles.statItem}>내 게시글 수: {postCount ?? 0}</Text>
-                    <Text style={styles.statItem}>
-                        내 게시글에 달린 댓글 수: {commentCount ?? 0}
+                    <Text style={styles.label}>마지막 로그인</Text>
+                    <Text style={styles.value}>
+                        {new Date(user.metadata.lastSignInTime || "").toLocaleString("ko-KR")}
                     </Text>
                 </View>
 
-                <View style={styles.recentBox}>
+                {/* 통계 */}
+                <View style={styles.card}>
+                    <Text style={styles.sectionTitle}>활동 통계</Text>
+                    <Text style={styles.statItem}>내 게시글 수: {postCount ?? 0}</Text>
+                    <Text style={styles.statItem}>댓글 수: {commentCount ?? 0}</Text>
+                </View>
+
+                {/* 최근 게시글 */}
+                <View style={styles.card}>
                     <View style={styles.recentHeader}>
-                        <Text style={styles.recentTitle}>최근 작성 글</Text>
+                        <Text style={styles.sectionTitle}>최근 작성 글</Text>
                         <TouchableOpacity onPress={loadUserStats}>
                             <Text style={styles.refreshText}>새로고침</Text>
                         </TouchableOpacity>
@@ -155,6 +158,7 @@ export default function ProfileScreen() {
                     )}
                 </View>
 
+                {/* 로그아웃 */}
                 <TouchableOpacity
                     style={styles.logoutButton}
                     onPress={() => {
@@ -173,95 +177,82 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#f5f5f7",
+        backgroundColor: "#f9f9fb",
     },
     container: {
-        padding: 20,
+        paddingHorizontal: 20,
         paddingBottom: 60,
     },
     center: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: "#f9f9fb",
     },
     noticeText: {
         fontSize: 16,
         color: "#333",
         marginBottom: 16,
     },
-    loginButton: {
-        backgroundColor: "#007AFF",
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 8,
-    },
-    loginButtonText: {
-        color: "#fff",
-        fontWeight: "600",
-        fontSize: 16,
-    },
     title: {
-        fontSize: 22,
+        fontSize: 26,
         fontWeight: "700",
+        color: "#111",
+        marginVertical: 20,
+    },
+    card: {
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        padding: 18,
         marginBottom: 20,
-        color: "#1c1c1e",
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 6,
+        borderWidth: 1,
+        borderColor: "#eee",
     },
     label: {
-        fontSize: 14,
-        color: "#666",
+        fontSize: 13,
+        color: "#8e8e93",
         marginTop: 10,
     },
     value: {
         fontSize: 16,
         fontWeight: "500",
+        color: "#111",
         marginTop: 4,
-        color: "#000",
     },
-    statsBox: {
-        marginTop: 30,
-        padding: 20,
-        borderRadius: 12,
-        backgroundColor: "#fff",
-        borderWidth: 1,
-        borderColor: "#e5e5ea",
+    sectionTitle: {
+        fontSize: 17,
+        fontWeight: "600",
+        color: "#1c1c1e",
+        marginBottom: 8,
     },
     statItem: {
         fontSize: 16,
-        marginBottom: 8,
         color: "#1c1c1e",
-    },
-    recentBox: {
-        marginTop: 30,
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: "#e5e5ea",
+        marginTop: 4,
     },
     recentHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 10,
-    },
-    recentTitle: {
-        fontSize: 17,
-        fontWeight: "600",
-        color: "#1c1c1e",
+        marginBottom: 8,
     },
     refreshText: {
-        color: "#007AFF",
+        color: "#007aff",
         fontWeight: "600",
     },
     emptyText: {
         color: "#8e8e93",
         fontSize: 14,
-        marginTop: 4,
+        marginTop: 6,
     },
     postItem: {
-        borderBottomWidth: 1,
-        borderBottomColor: "#eee",
-        paddingVertical: 8,
+        borderTopWidth: 1,
+        borderTopColor: "#f2f2f4",
+        paddingVertical: 10,
     },
     postTitle: {
         fontSize: 16,
@@ -272,16 +263,35 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#555",
     },
+    primaryButton: {
+        backgroundColor: "#007aff",
+        paddingVertical: 14,
+        paddingHorizontal: 28,
+        borderRadius: 12,
+        shadowColor: "#007aff",
+        shadowOpacity: 0.25,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
+    },
+    primaryButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
+    },
     logoutButton: {
-        marginTop: 40,
-        alignSelf: "center",
-        paddingVertical: 12,
-        paddingHorizontal: 24,
         backgroundColor: "#ff3b30",
-        borderRadius: 10,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        marginTop: 16,
+        shadowColor: "#ff3b30",
+        shadowOpacity: 0.25,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
     },
     logoutText: {
         color: "#fff",
+        fontSize: 16,
         fontWeight: "600",
     },
 });

@@ -1,81 +1,143 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import {
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useRouter } from "expo-router";
 
 export default function RegisterScreen() {
-    // 이메일과 비밀번호 입력값 상태 관리
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-
-    // 화면 전환을 위한 router 객체
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
-    /**
-     * 회원가입 처리 함수
-     * Firebase Auth의 createUserWithEmailAndPassword 사용
-     */
     const handleRegister = async () => {
         try {
-            // Firebase 인증 요청
             await createUserWithEmailAndPassword(auth, email, password);
-
             alert("회원가입 성공!");
-
-            // 회원가입 성공 시 메인 탭으로 이동
             router.replace("/(tabs)");
         } catch (error: any) {
-            // 실패 시 경고창 표시
             alert("회원가입 실패: " + error.message);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>회원가입</Text>
+        <SafeAreaView
+            style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+        >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <Text style={styles.title}>회원가입</Text>
 
-            {/* 이메일 입력 */}
-            <TextInput
-                style={styles.input}
-                placeholder="이메일"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-            />
+                    {/* 이메일 입력 */}
+                    <TextInput
+                        style={styles.input}
+                        placeholder="이메일"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
 
-            {/* 비밀번호 입력 */}
-            <TextInput
-                style={styles.input}
-                placeholder="비밀번호"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+                    {/* 비밀번호 입력 */}
+                    <TextInput
+                        style={styles.input}
+                        placeholder="비밀번호"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                    />
 
-            {/* 회원가입 버튼 */}
-            <Button title="회원가입" onPress={handleRegister} />
+                    {/* 회원가입 버튼 */}
+                    <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
+                        <Text style={styles.primaryButtonText}>회원가입</Text>
+                    </TouchableOpacity>
 
-            {/* 로그인 화면으로 돌아가기 */}
-            <Button
-                title="로그인으로 돌아가기"
-                onPress={() => router.back()}
-                color="gray"
-            />
-        </View>
+                    {/* 로그인으로 돌아가기 */}
+                    <TouchableOpacity
+                        style={styles.secondaryButton}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={styles.secondaryButtonText}>로그인으로 돌아가기</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
-// 간단한 스타일 정의
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: "center", padding: 20 },
-    title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+    safeArea: {
+        flex: 1,
+        backgroundColor: "#f9f9fb",
+    },
+    container: {
+        flexGrow: 1,
+        justifyContent: "center",
+        paddingHorizontal: 24,
+        paddingVertical: 40,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#111",
+        textAlign: "center",
+        marginBottom: 40,
+    },
     input: {
+        backgroundColor: "#fff",
         borderWidth: 1,
-        borderColor: "#ccc",
-        padding: 10,
-        marginBottom: 10,
-        borderRadius: 5,
+        borderColor: "#e5e5ea",
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        fontSize: 16,
+        marginBottom: 14,
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 1 },
+    },
+    primaryButton: {
+        backgroundColor: "#007aff",
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: "center",
+        marginTop: 10,
+        shadowColor: "#007aff",
+        shadowOpacity: 0.25,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
+    },
+    primaryButtonText: {
+        color: "#fff",
+        fontSize: 17,
+        fontWeight: "600",
+    },
+    secondaryButton: {
+        backgroundColor: "#f2f2f4",
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: "center",
+        marginTop: 12,
+    },
+    secondaryButtonText: {
+        color: "#333",
+        fontSize: 16,
+        fontWeight: "500",
     },
 });
