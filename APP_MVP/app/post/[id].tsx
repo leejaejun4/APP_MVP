@@ -26,7 +26,7 @@ import {
     serverTimestamp,
     deleteDoc,
 } from "firebase/firestore";
-import { auth, db } from "../../../firebase";
+import { auth, db } from "../../firebase";
 
 /**
  * 댓글 데이터 타입 정의

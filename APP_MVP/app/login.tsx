@@ -3,7 +3,7 @@ import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useRouter } from "expo-router";
-import Toast from "react-native-toast-message"; // ✅ 토스트 추가
+import Toast from "react-native-toast-message"; //토스트 추가
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -15,7 +15,7 @@ export default function LoginScreen() {
         try {
             await signInWithEmailAndPassword(auth, email, password);
 
-            // ✅ 로그인 성공 Toast
+            //로그인 성공 Toast
             Toast.show({
                 type: "success",
                 text1: "로그인 성공",
@@ -24,7 +24,7 @@ export default function LoginScreen() {
 
             router.replace("/(tabs)");
         } catch (error: any) {
-            // ✅ 에러 코드별 메시지
+            //에러 코드별 메시지
             let message = "알 수 없는 오류가 발생했습니다.";
             if (error.code === "auth/invalid-credential") {
                 message = "이메일 또는 비밀번호가 잘못되었습니다.";
