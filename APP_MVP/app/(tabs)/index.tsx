@@ -1,3 +1,13 @@
+/**
+ * PostListScreen.tsx
+ * 홈(게시글 목록) 화면
+ * - Firestore posts 컬렉션에서 게시글 목록 조회
+ * - 로그인 상태 감지 및 로그아웃 처리
+ * - 게시글 삭제(작성자 본인만)
+ * - 새 글 작성, 상세 페이지 이동
+ * - 스와이프 삭제, 탭 포커스 시 자동 새로고침
+ */
+
 import React, { useEffect, useState, useCallback } from "react";
 import {
   SafeAreaView,
@@ -16,14 +26,17 @@ import {
   orderBy,
   deleteDoc,
   doc,
+  getDoc,
+  updateDoc,
+  increment,
 } from "firebase/firestore";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { Swipeable } from "react-native-gesture-handler";
-import { useFocusEffect } from "@react-navigation/native"; //화면 포커스 시점 감지용 훅
+import { useFocusEffect } from "@react-navigation/native";
 
 /**
- * Firestore 게시글 데이터 구조 정의
+ * Firestore 게시글 구조 정의
  */
 interface Post {
   id: string;
@@ -31,44 +44,41 @@ interface Post {
   content: string;
   createdAt?: any;
   userId?: string;
+  userNickname?: string;
 }
 
 /**
- * 게시글 목록 화면 (홈)
- * Firestore에서 게시글을 불러와 목록 형태로 출력하며
- * 로그인 상태 감시, 게시글 삭제, 로그아웃, 새 글 작성 이동 기능을 포함함
+ * 게시글 목록 화면
  */
 export default function PostListScreen() {
-  const [posts, setPosts] = useState<Post[]>([]); // 게시글 리스트 상태
+  const [posts, setPosts] = useState<Post[]>([]); // 게시글 목록
   const [currentUser, setCurrentUser] = useState<User | null>(null); // 현재 로그인 사용자
-  const router = useRouter(); // Expo Router의 네비게이션 훅
+  const router = useRouter();
 
   /**
-   * 로그인 상태 실시간 감시
-   * Firebase Auth의 onAuthStateChanged로 로그인/로그아웃 여부를 추적함
+   * 로그인 상태 감시
+   * onAuthStateChanged를 통해 로그인/로그아웃 이벤트 추적
    */
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUser(user));
-    return unsubscribe; // 언마운트 시 구독 해제
+    return unsubscribe; // 컴포넌트 언마운트 시 구독 해제
   }, []);
 
   /**
-   * Firestore에서 게시글 목록을 가져오는 함수
-   * createdAt 기준으로 최신순 정렬
+   * Firestore에서 posts 컬렉션 데이터 조회
+   * createdAt 기준으로 내림차순 정렬
    */
   const fetchPosts = async () => {
     try {
-      // posts 컬렉션에서 createdAt 필드 기준 내림차순 정렬 쿼리 생성
       const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
 
-      // 문서들을 map으로 순회하며 id + 데이터 병합
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const data = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       })) as Post[];
 
-      setPosts(data); // 상태 업데이트
+      setPosts(data);
     } catch (error) {
       console.error("게시글 불러오기 실패:", error);
       Alert.alert("오류", "게시글을 불러오는 중 문제가 발생했습니다.");
@@ -76,18 +86,18 @@ export default function PostListScreen() {
   };
 
   /**
-   * 화면이 포커스될 때마다 Firestore 데이터를 다시 불러옴
-   * useEffect는 한 번만 실행되므로, useFocusEffect로 실시간 갱신 구현
+   * 탭 이동 시 데이터 새로고침
+   * useFocusEffect는 화면이 다시 포커스될 때마다 실행됨
    */
   useFocusEffect(
     useCallback(() => {
-      fetchPosts(); // 홈으로 돌아올 때마다 새로 데이터 가져옴
+      fetchPosts();
     }, [])
   );
 
   /**
-   * 로그아웃 기능
-   * Firebase Auth의 signOut 호출 후 로그인 페이지로 이동
+   * 로그아웃 처리
+   * Firebase Auth signOut 호출 후 로그인 화면으로 리다이렉트
    */
   const handleLogout = async () => {
     try {
@@ -100,20 +110,29 @@ export default function PostListScreen() {
   };
 
   /**
-   * 게시글 상세 화면으로 이동
-   * post/[id].tsx로 연결됨
+   * 게시글 상세 페이지 이동
+   * /post/[id].tsx 로 연결
    */
-  const handlePostPress = (postId: string) => router.push(`/post/${postId}`);
+  const handlePostPress = (postId: string) => {
+    router.push(`/post/${postId}`);
+  };
 
   /**
-   * 게시글 작성 화면으로 이동
-   * (tabs)/게시글.tsx 파일로 이동
+   * 새 글 작성 페이지 이동
+   * /(tabs)/게시글.tsx 로 이동
    */
-  const handleCreatePost = () => router.push("/게시글");
+  const handleCreatePost = () => {
+    if (!currentUser) {
+      Alert.alert("로그인 필요", "로그인 후 글을 작성할 수 있습니다.");
+      return;
+    }
+    router.push("/post");
+  };
 
   /**
-   * 게시글 삭제 기능
-   * Firestore에서 문서를 삭제하고 UI 상태에서도 즉시 반영
+   * 게시글 삭제
+   * 본인 글만 삭제 가능. posts/{id} 문서 삭제 후 UI에서 제거.
+   * 동시에 Firestore users/{uid}.postCount를 1 감소시킴.
    */
   const handleDelete = (postId: string) => {
     Alert.alert("삭제 확인", "정말로 이 게시글을 삭제하시겠습니까?", [
@@ -123,8 +142,24 @@ export default function PostListScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteDoc(doc(db, "posts", postId)); // Firestore 문서 삭제
-            setPosts((prev) => prev.filter((p) => p.id !== postId)); // 상태에서도 제거
+            // Firestore에서 게시글 문서 삭제
+            await deleteDoc(doc(db, "posts", postId));
+
+            // UI 상태에서 제거
+            setPosts((prev) => prev.filter((p) => p.id !== postId));
+
+            // 게시글 카운트 감소 (users/{uid})
+            if (currentUser) {
+              const userRef = doc(db, "users", currentUser.uid);
+              const snap = await getDoc(userRef);
+              if (snap.exists()) {
+                await updateDoc(userRef, {
+                  postCount: increment(-1),
+                });
+              }
+            }
+
+            Alert.alert("완료", "게시글이 삭제되었습니다.");
           } catch (error) {
             console.error("삭제 오류:", error);
             Alert.alert("오류", "게시글 삭제에 실패했습니다.");
@@ -135,7 +170,8 @@ export default function PostListScreen() {
   };
 
   /**
-   * 스와이프 시 표시할 오른쪽 삭제 버튼 UI
+   * 스와이프 시 나타나는 삭제 버튼
+   * react-native-gesture-handler Swipeable 사용
    */
   const renderRightActions = (postId: string) => (
     <TouchableOpacity
@@ -147,11 +183,11 @@ export default function PostListScreen() {
   );
 
   /**
-   * 개별 게시글 카드 렌더링
-   * 본인 게시글이면 스와이프로 삭제 가능
+   * 게시글 카드 UI
+   * - 작성자 본인인 경우에만 스와이프 삭제 허용
    */
   const renderItem = ({ item }: { item: Post }) => {
-    const isOwner = currentUser?.uid === item.userId; // 작성자 확인
+    const isOwner = currentUser?.uid === item.userId;
 
     const card = (
       <TouchableOpacity
@@ -167,7 +203,6 @@ export default function PostListScreen() {
       </TouchableOpacity>
     );
 
-    // 본인 글만 스와이프 삭제 가능
     return isOwner ? (
       <Swipeable renderRightActions={() => renderRightActions(item.id)}>
         {card}
@@ -178,12 +213,14 @@ export default function PostListScreen() {
   };
 
   /**
-   * 실제 렌더링 구조
+   * 렌더링 구성
+   * - 상단에 새 글 / 로그인 / 로그아웃 버튼 표시
+   * - 게시글이 없으면 안내 문구 표시
    */
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* 상단 버튼 (새 글 / 로그인 / 로그아웃) */}
+        {/* 상단 버튼 영역 */}
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={styles.primaryButton}
@@ -209,7 +246,7 @@ export default function PostListScreen() {
           )}
         </View>
 
-        {/* 게시글 리스트 렌더링 */}
+        {/* 게시글 리스트 */}
         {posts.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>아직 작성된 글이 없습니다</Text>
@@ -227,12 +264,18 @@ export default function PostListScreen() {
   );
 }
 
-/**
- * 스타일 정의
- */
+/* ===========================
+   스타일 정의
+=========================== */
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f5f5f7" },
-  container: { flex: 1, paddingHorizontal: 20 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f5f5f7",
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -247,7 +290,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 8,
   },
-  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   dangerButton: {
     flex: 1,
     backgroundColor: "#FF3B30",
@@ -256,7 +303,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: 8,
   },
-  dangerButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  dangerButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   loginButton: {
     flex: 1,
     backgroundColor: "#34C759",
@@ -265,9 +316,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: 8,
   },
-  loginButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  emptyBox: { flex: 1, justifyContent: "center", alignItems: "center" },
-  emptyText: { color: "#8e8e93", fontSize: 16 },
+  loginButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  emptyBox: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#8e8e93",
+    fontSize: 16,
+  },
   postCard: {
     backgroundColor: "#fff",
     padding: 16,
@@ -284,7 +346,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     color: "#1c1c1e",
   },
-  postContent: { fontSize: 14, color: "#555" },
+  postContent: {
+    fontSize: 14,
+    color: "#555",
+  },
   deleteButton: {
     backgroundColor: "#FF3B30",
     justifyContent: "center",
