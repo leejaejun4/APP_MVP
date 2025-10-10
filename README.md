@@ -14,18 +14,13 @@
 
 ### 증상
 
-- Expo 실행 시 다음 오류 발생  
+- Expo 실행 시 다음 오류 발생
   [Error: Component auth has not been registered yet]
 
-diff
-코드 복사
 
 - iOS Expo Go에서 Firebase Auth 초기화 실패
-- Metro 로그에 React 버전 불일치 경고  
+- Metro 로그에 React 버전 불일치 경고
   react 19.2.0 / react-native-renderer 19.1.0
-
-yaml
-코드 복사
 
 ---
 
@@ -49,20 +44,20 @@ npm uninstall @react-native-firebase/storage
 npm uninstall firebase
 Metro · Node 캐시 초기화
 bash
-코드 복사
+
 rmdir /s /q node_modules\.cache
 rmdir /s /q "%LOCALAPPDATA%\Temp\metro-cache"
 React 버전 정렬 (Expo 권장)
 bash
-코드 복사
+
 npm install react@19.1.0 react-dom@19.1.0
 Firebase 웹 SDK 재설치
 bash
-코드 복사
+
 npm install firebase@9.22.2
 firebase.js 정비
 javascript
-코드 복사
+
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -83,9 +78,9 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 6️⃣ 번들러 캐시 초기화 후 실행
-bash
-코드 복사
+
 npx expo start -c
+
 ✅ 결과
 항목	상태	비고
 Firebase Auth (로그인/회원가입)	✅ 정상	Expo Go에서 인증 정상 작동
@@ -103,8 +98,6 @@ missing default export 경고는 일부 화면 파일에 export default 누락�
 
 예시 수정:
 
-tsx
-코드 복사
 export default function HomeScreen() {
   return <View><Text>Home</Text></View>;
 }
@@ -156,7 +149,6 @@ onSnapshot() 실시간 구독 시 unsubscribe 누락 방지
 
 버전 고정 (package.json)
 json
-코드 복사
 {
   "dependencies": {
     "firebase": "9.22.2",
